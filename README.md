@@ -1,12 +1,27 @@
-# MITRA — supervised agent slice
+# MITRA
 
-A supervised personal AI agent with voice and text interaction, autonomous task execution, desktop and browser control, persistent memory, and human-in-the-loop security.
+**A supervised personal AI agent that keeps you in control.** MITRA combines a conversational workspace with bounded file tools, explicit approvals, persistent user-managed memory, and optional browser, Windows desktop, and voice features.
 
-The approved Next.js UI remains in **Frontend/**. It now connects to a real, bounded file-agent loop. There is no production mock-provider fallback.
+The default provider is an explicitly configured OpenAI-compatible model endpoint. MITRA does not start or download models automatically, and it has no production fake-provider fallback.
 
-Track current work in [PROJECT_PROGRESS.md](PROJECT_PROGRESS.md). Phase 4A adds page inspection; phase 4B adds separately enabled sessions with approved link clicks and text entry. Milestone 5 adds paired Windows observation/capture and approved window focus; milestones 6 and 7 add user-managed memory and opt-in speech. Model startup remains user-controlled.
+## Frontend screenshots
 
-See [browser setup and boundaries](docs/BROWSER_PHASE.md) to enable exact trusted origins later. It is disabled by default and does not launch a browser at startup.
+<p align="center">
+  <img src="docs/screenshots/mitra-desktop.png" alt="MITRA desktop workspace" width="720">
+  <img src="docs/screenshots/mitra-mobile.png" alt="MITRA mobile workspace" width="220">
+</p>
+
+<p align="center"><em>Desktop and mobile workspace. Screenshots use the deterministic test API; they do not represent live model output.</em></p>
+
+## Highlights
+
+- Review and approve exact proposed file writes before they run.
+- Keep file access inside the configured workspace; there is no generic shell tool.
+- Opt in to trusted browser origins and separately approved link/text interactions.
+- Pair the Windows runtime for heartbeat; explicitly enable exact-approved window inspection, capture, or focus.
+- Manage explicit memory records and revisions; voice is opt-in and never submits a transcript automatically.
+
+Browser interaction is disabled by default. Browser forms, authentication, uploads, page scripts, unrestricted desktop input, and scheduled workers are not implemented. See [browser setup and boundaries](docs/BROWSER_PHASE.md), [Windows runtime setup](docs/WINDOWS_RUNTIME.md), and [memory and voice](docs/MEMORY_AND_VOICE.md).
 
 ## Repository
 
@@ -26,13 +41,15 @@ Frontend/tests/       Approval-state and event-de-duplication tests
 evals/                20 scripted/live cases, runner, saved results
 ```
 
-Docker, Redis, Postgres, vector search, desktop typing/clicking, browser forms/authentication, generic shell tools, and scheduled workers are not implemented. Entity IDs are UUIDs; SSE uses a monotonically increasing event cursor for replay.
+The API uses SQLite through SQLAlchemy/Alembic. Entity IDs are UUIDs; SSE uses a monotonically increasing event cursor for replay. Current work and checks are tracked in [PROJECT_PROGRESS.md](PROJECT_PROGRESS.md).
 
 ## Windows setup
 
-Run commands from `E:\JARIS`. Requires Python 3.11+, Node.js 20.9+, and a separately installed llama.cpp build/model. No model is downloaded automatically.
+Clone the repository and run commands from its root. Requires Python 3.11+, Node.js 20.9+, and, if using a local model, a separately installed llama.cpp build and model. No model is downloaded automatically.
 
 ```powershell
+git clone https://github.com/Amit20111/MITRA.git
+Set-Location MITRA
 python -m venv .venv
 .venv\Scripts\python -m pip install -c requirements.lock -e '.[dev]'
 npm ci
@@ -57,7 +74,8 @@ Set these in root `.env`:
 LLM_BASE_URL=http://127.0.0.1:8080/v1
 LLM_MODEL=mitra-local
 LLM_API_KEY=
-MITRA_WORKSPACE=E:/JARIS/workspace
+# Optional; defaults to the repository's workspace directory:
+# MITRA_WORKSPACE=C:/path/to/your/workspace
 ```
 
 The API can start without a model, but requests fail honestly with a configuration/connection error. It never switches providers automatically.
@@ -132,10 +150,4 @@ The runner creates temporary workspaces and executes the real orchestration/API/
 See [architecture and limitations](docs/ARCHITECTURE.md), [API/event contract](docs/API_CONTRACT.md), and [implementation report](docs/SLICE1_REPORT.md).
 
 
-## MITRA rename and existing installations
-
-Project branding, Python/npm package metadata, UI components, documentation and configuration now use MITRA. Environment settings use `MITRA_*`; existing repository `.env` keys were migrated without changing their values. Restart the API/frontend after updating, and rename any externally configured `JARIS_*` variables to `MITRA_*`.
-
-The checkout is still physically `E:\JARIS`; commands referencing that existing folder remain valid. Dependencies, build caches, user workspaces and historical database contents are not rewritten. Existing `.data/jaris-slice1.db` and `%LOCALAPPDATA%\JARIS\runtime.dpapi` are discovered as compatibility fallbacks when their MITRA counterparts do not exist, preserving conversations, memories and pairing. Fresh installs use MITRA storage names. These fallback names and their tests intentionally retain the previous identifier.
-
-The frontend follows the supplied Mitra Command Workspace reference, using a ribbon M logo, navy/cyan glass panels, animated orbital core and vector wave background. Metrics remain based on actual application state; there is no fabricated uptime, connection state or latency. Small screens expose Task overview through the header toggle, and fullscreen remains available.
+The responsive frontend uses a navy-and-cyan command workspace with live application state; it does not fabricate uptime, connection status, or latency. On small screens, task overview is available from the header.
