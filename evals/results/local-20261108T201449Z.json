@@ -1,0 +1,5 @@
+{
+  "provider": "local",
+  "status": "not_run",
+  "reason": "LLM_MODEL is not configured; no real-model score is claimed."
+}

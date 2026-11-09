@@ -1,0 +1,39 @@
+{
+  "name": "mitra",
+  "version": "0.2.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev Frontend --hostname 127.0.0.1",
+    "build": "next build Frontend",
+    "start": "next start Frontend --hostname 127.0.0.1",
+    "lint": "eslint --config Frontend/eslint.config.mjs Frontend",
+    "typecheck": "tsc --noEmit -p Frontend/tsconfig.json",
+    "test": "tsx --tsconfig Frontend/tsconfig.json --test Frontend/tests/approval.test.tsx Frontend/tests/events.test.ts",
+    "format": "prettier --write Frontend package.json README.md",
+    "gen:types": "node scripts/contracts.mjs",
+    "gen:types:live": "node scripts/contracts.mjs --live",
+    "check:types": "node scripts/contracts.mjs --check",
+    "test:e2e": "playwright test --config tests/e2e/playwright.config.ts"
+  },
+  "dependencies": {
+    "lucide-react": "^0.468.0",
+    "next": "16.4.5",
+    "playwright": "^1.65.0",
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.65.0",
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^22",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.4.5",
+    "openapi-typescript": "^7.13.0",
+    "prettier": "^3.9.10",
+    "tailwindcss": "^4",
+    "tsx": "^4",
+    "typescript": "^5"
+  }
+}

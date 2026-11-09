@@ -1,0 +1,28 @@
+name: Verify MITRA
+on: [push, pull_request]
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: python -m venv .venv
+      - run: .venv/bin/python -m pip install -c requirements.lock -e '.[dev]'
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run check:types
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: .venv/bin/python -m ruff check apps/api apps/runtime agent models tools memory security observability tests evals
+      - run: .venv/bin/python -m mypy
+      - run: .venv/bin/python -m pytest -q
+      - run: npm run build
+      - run: npm run test:e2e
+      - run: .venv/bin/python -m evals.run --provider fake
