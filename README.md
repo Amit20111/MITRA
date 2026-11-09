@@ -1,5 +1,7 @@
 # MITRA — supervised agent slice
 
+A supervised personal AI agent with voice and text interaction, autonomous task execution, desktop and browser control, persistent memory, and human-in-the-loop security.
+
 The approved Next.js UI remains in **Frontend/**. It now connects to a real, bounded file-agent loop. There is no production mock-provider fallback.
 
 Track current work in [PROJECT_PROGRESS.md](PROJECT_PROGRESS.md). Phase 4A adds page inspection; phase 4B adds separately enabled sessions with approved link clicks and text entry. Milestone 5 adds paired Windows observation/capture and approved window focus; milestones 6 and 7 add user-managed memory and opt-in speech. Model startup remains user-controlled.
