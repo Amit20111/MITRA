@@ -1,44 +1,12 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect } from "@playwright/test";
 import { readFileSync, existsSync } from "node:fs";
-import os from "node:os";
 import path from "node:path";
-
-const secretDir =
-  process.env.MITRA_SECRET_DIR || path.join(os.tmpdir(), "mitra-e2e-secrets");
-const apiOrigin = process.env.MITRA_API_URL || "http://127.0.0.1:8007";
-
-function localKey(): string {
-  return readFileSync(path.join(secretDir, "local-api.key"), "ascii").trim();
-}
-
-async function issueLaunchCode(): Promise<string> {
-  const response = await fetch(`${apiOrigin}/api/v1/auth/launch`, {
-    method: "POST",
-    headers: { "x-mitra-local-key": localKey() },
-  });
-  expect(response.status).toBe(200);
-  const data = (await response.json()) as { code: string };
-  return data.code;
-}
-
-async function unlockPage(page: Page): Promise<void> {
-  const code = await issueLaunchCode();
-  await page.goto(`/unlock?code=${encodeURIComponent(code)}`);
-  await expect(page).toHaveURL(/\/$/);
-}
-
-test.beforeEach(async ({ page }) => {
-  await unlockPage(page);
-});
-
-function sameOriginHeader(headers?: Record<string, string>) {
-  return { Origin: "http://127.0.0.1:3007", ...headers };
-}
 
 test("send -> proposed write -> approval -> verified file -> persisted reload", async ({
   page,
+  request,
 }) => {
-  const settings = await (await page.request.get("/api/v1/settings")).json();
+  const settings = await (await request.get("/api/v1/settings")).json();
   const target = path.join(settings.workspace, "approved.txt");
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
@@ -119,6 +87,7 @@ test("send -> proposed write -> approval -> verified file -> persisted reload", 
 
 test("browser field waits for exact approval and then verifies", async ({
   page,
+  request,
 }) => {
   await page.goto("/");
   await Promise.all([
@@ -139,7 +108,7 @@ test("browser field waits for exact approval and then verifies", async ({
   await expect(page.getByText("Review exact browser action")).toBeVisible({
     timeout: 20000,
   });
-  const pendingTasks = await (await page.request.get("/api/v1/tasks")).json();
+  const pendingTasks = await (await request.get("/api/v1/tasks")).json();
   const pending = pendingTasks.find(
     (task: { status: string; steps: { tool: string }[] }) =>
       task.status === "awaiting_approval" &&
@@ -160,7 +129,7 @@ test("browser field waits for exact approval and then verifies", async ({
     page.locator(".status-pill").filter({ hasText: "Completed" }),
   ).toBeVisible({ timeout: 15000 });
   const finished = await (
-    await page.request.get(`/api/v1/tasks/${pending.id}`)
+    await request.get(`/api/v1/tasks/${pending.id}`)
   ).json();
   expect(finished.steps.at(-1).result.controls[0].value).toBe(
     "Verified browser value",
@@ -178,7 +147,7 @@ test("runtime pairing reports heartbeat and revokes access", async ({
     .click();
   const code = await page.getByLabel("Runtime pairing code").innerText();
   const [pairingId, secret] = code.split(".");
-  const claim = await request.post(`${apiOrigin}/api/v1/runtime/pairing/claim`, {
+  const claim = await request.post("/api/v1/runtime/pairing/claim", {
     data: {
       pairingId,
       code: secret,
@@ -190,13 +159,10 @@ test("runtime pairing reports heartbeat and revokes access", async ({
   expect(claim.status()).toBe(200);
   const credential = await claim.json();
   const heartbeat = () =>
-    request.post(
-      `${apiOrigin}/api/v1/runtime/${credential.runtimeId}/heartbeat`,
-      {
-        headers: { Authorization: `Bearer ${credential.token}` },
-        data: { protocolVersion: 1, runtimeVersion: "0.1.0" },
-      },
-    );
+    request.post(`/api/v1/runtime/${credential.runtimeId}/heartbeat`, {
+      headers: { Authorization: `Bearer ${credential.token}` },
+      data: { protocolVersion: 1, runtimeVersion: "0.1.0" },
+    });
   expect((await heartbeat()).status()).toBe(200);
   await expect(
     page.locator(".runtime-settings .outline-badge").first(),
@@ -242,25 +208,18 @@ test("desktop operation waits for consent and stop prevents dispatch", async ({
   page,
   request,
 }) => {
-  const code = await (
-    await page.request.post("/api/v1/runtime/pairing", {
-      headers: sameOriginHeader(),
-    })
-  ).json();
+  const code = await (await request.post("/api/v1/runtime/pairing")).json();
   const [pairingId, secret] = code.pairingCode.split(".");
   const credential = await (
-    await request.post(`${apiOrigin}/api/v1/runtime/pairing/claim`, {
+    await request.post("/api/v1/runtime/pairing/claim", {
       data: { pairingId, code: secret, name: "Desktop fixture" },
     })
   ).json();
   const headers = { Authorization: `Bearer ${credential.token}` };
-  await request.post(
-    `${apiOrigin}/api/v1/runtime/${credential.runtimeId}/heartbeat`,
-    {
-      headers,
-      data: { desktopEnabled: true },
-    },
-  );
+  await request.post(`/api/v1/runtime/${credential.runtimeId}/heartbeat`, {
+    headers,
+    data: { desktopEnabled: true },
+  });
   await page.goto("/settings");
   await Promise.all([
     page.waitForResponse(
@@ -270,12 +229,9 @@ test("desktop operation waits for consent and stop prevents dispatch", async ({
   ]);
   expect(
     await (
-      await request.post(
-        `${apiOrigin}/api/v1/runtime/${credential.runtimeId}/poll`,
-        {
-          headers,
-        },
-      )
+      await request.post(`/api/v1/runtime/${credential.runtimeId}/poll`, {
+        headers,
+      })
     ).json(),
   ).toBeNull();
   await Promise.all([
@@ -283,16 +239,13 @@ test("desktop operation waits for consent and stop prevents dispatch", async ({
     page.getByRole("button", { name: "Approve desktop operation" }).click(),
   ]);
   const job = await (
-    await request.post(
-      `${apiOrigin}/api/v1/runtime/${credential.runtimeId}/poll`,
-      {
-        headers,
-      },
-    )
+    await request.post(`/api/v1/runtime/${credential.runtimeId}/poll`, {
+      headers,
+    })
   ).json();
   expect(job.state).toBe("dispatched");
   await request.post(
-    `${apiOrigin}/api/v1/runtime/${credential.runtimeId}/${job.id}/result`,
+    `/api/v1/runtime/${credential.runtimeId}/${job.id}/result`,
     {
       headers,
       data: {
@@ -326,22 +279,19 @@ test("desktop operation waits for consent and stop prevents dispatch", async ({
   ]);
   expect(
     await (
-      await request.post(
-        `${apiOrigin}/api/v1/runtime/${credential.runtimeId}/poll`,
-        {
-          headers,
-        },
-      )
+      await request.post(`/api/v1/runtime/${credential.runtimeId}/poll`, {
+        headers,
+      })
     ).json(),
   ).toBeNull();
-  await page.request.post("/api/v1/runtime/revoke", {
-    headers: sameOriginHeader(),
+  await request.post("/api/v1/runtime/revoke", {
     data: { runtimeId: credential.runtimeId },
   });
 });
 
 test("voice disabled state and reviewed text never auto-sends", async ({
   page,
+  request,
 }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "Voice input information" }).click();
@@ -354,14 +304,14 @@ test("voice disabled state and reviewed text never auto-sends", async ({
   await dialog
     .getByLabel("Voice transcript", { exact: true })
     .fill("A reviewed speech request");
-  const before = await (await page.request.get("/api/v1/tasks")).json();
+  const before = await (await request.get("/api/v1/tasks")).json();
   await dialog
     .getByRole("button", { name: "Use reviewed transcript", exact: true })
     .click();
   await expect(page.getByLabel("Message MITRA")).toHaveValue(
     "A reviewed speech request",
   );
-  const after = await (await page.request.get("/api/v1/tasks")).json();
+  const after = await (await request.get("/api/v1/tasks")).json();
   expect(after.length).toBe(before.length);
 });
 
@@ -471,44 +421,4 @@ test("voice recording review, cancellation and playback use explicit controls", 
   );
   expect(counts.tracksStopped).toBeGreaterThanOrEqual(2);
   expect(counts.paused).toBeGreaterThanOrEqual(1);
-});
-
-test("unauthenticated visitors see locked screen, launch link unlocks once, and lock revokes session", async ({
-  browser,
-}) => {
-  const context = await browser.newContext();
-  const page = await context.newPage();
-  try {
-    const first = await page.goto("/");
-    expect(first?.headers()["content-security-policy"]).toContain(
-      "default-src 'self'",
-    );
-    expect(first?.headers()["x-frame-options"]).toBe("DENY");
-    await expect(
-      page.getByRole("heading", { name: "MITRA is locked" }),
-    ).toBeVisible();
-    const denied = await page.request.get("/api/v1/settings");
-    expect(denied.status()).toBe(401);
-
-    const code = await issueLaunchCode();
-    await page.goto(`/unlock?code=${encodeURIComponent(code)}`);
-    await expect(page.getByLabel("Message MITRA")).toBeVisible();
-
-    const freshContext = await browser.newContext();
-    const freshPage = await freshContext.newPage();
-    await freshPage.goto(`/unlock?code=${encodeURIComponent(code)}`);
-    await expect(
-      freshPage.getByRole("heading", { name: "MITRA is locked" }),
-    ).toBeVisible();
-    await freshContext.close();
-
-    await page.goto("/settings");
-    await page.getByRole("button", { name: "Lock session" }).click();
-    await expect(
-      page.getByRole("heading", { name: "MITRA is locked" }),
-    ).toBeVisible();
-    expect((await page.request.get("/api/v1/settings")).status()).toBe(401);
-  } finally {
-    await context.close();
-  }
 });

@@ -13,7 +13,6 @@ import uvicorn
 
 from apps.api.main import create_app
 from apps.runtime.vault import load
-from tests.client import login
 from tests.fakes import FakeProvider
 
 
@@ -35,16 +34,13 @@ def test_native_helper_pair_heartbeat_and_revocation(tmp_path):
         with httpx.Client(base_url=origin, trust_env=False, timeout=2) as client:
             for _ in range(100):
                 try:
-                    # The API is up once its boundary answers; health needs a session.
-                    if client.get("/api/v1/health").status_code == 401:
+                    if client.get("/api/v1/health").status_code == 200:
                         break
                 except httpx.HTTPError:
                     pass
                 time.sleep(0.05)
             else:
                 pytest.fail("Fixture API did not start")
-            login(client, app)
-            assert client.get("/api/v1/health").status_code == 200
             code = client.post("/api/v1/runtime/pairing").json()["pairingCode"]
             credential_file = tmp_path / "helper.dpapi"
             command = [

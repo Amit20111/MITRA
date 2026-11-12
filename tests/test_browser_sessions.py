@@ -6,11 +6,11 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from uuid import uuid4
 
 import pytest
+from fastapi.testclient import TestClient
 
 from apps.api.contracts import Approval, Task, ToolCall
 from apps.api.main import create_app
 from security.policy import action_digest
-from tests.client import ApiClient
 from tests.fakes import FakeProvider, final, tool
 from tests.test_workflow import decide, submit, wait_for
 from tools.browser_sessions import BrowserAction
@@ -213,7 +213,7 @@ def test_session_agent_approval_and_cleanup(
     monkeypatch.setenv("MITRA_BROWSER_ORIGINS", origin)
     monkeypatch.setenv("MITRA_BROWSER_INTERACTION", "true")
     provider = SessionProvider(origin)
-    with ApiClient(
+    with TestClient(
         create_app(tmp_path / "db.sqlite", provider, tmp_path / "workspace")
     ) as client:
         provider.registry = client.app.state.agent.registry
@@ -297,10 +297,10 @@ def test_restart_invalidates_browser_approval(interaction_site, tmp_path, monkey
     monkeypatch.setenv("MITRA_BROWSER_INTERACTION", "true")
     provider = SessionProvider(origin)
     database, workspace = tmp_path / "db.sqlite", tmp_path / "workspace"
-    with ApiClient(create_app(database, provider, workspace)) as client:
+    with TestClient(create_app(database, provider, workspace)) as client:
         provider.registry = client.app.state.agent.registry
         task = wait_for(client, submit(client, "Fill fixture note")["id"])
-    with ApiClient(create_app(database, FakeProvider([]), workspace)) as client:
+    with TestClient(create_app(database, FakeProvider([]), workspace)) as client:
         recovered = client.get(f"/api/v1/tasks/{task['id']}").json()
         assert recovered["status"] == "failed"
         assert recovered["approval"]["status"] == "expired"

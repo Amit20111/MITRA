@@ -37,7 +37,6 @@ import { FullscreenToggle } from "@/components/fullscreen-toggle";
 import { DesktopPanel } from "@/components/desktop-panel";
 import { VoicePanel } from "@/components/voice-panel";
 import { RuntimeSettings } from "@/components/runtime-settings";
-import { SessionControls } from "@/components/session-controls";
 import { MitraMark } from "@/components/mitra-mark";
 import { SystemCore } from "@/components/system-core";
 import { agentClient, subscribeTask } from "@/lib/api/client";
@@ -1121,7 +1120,6 @@ export function Workspace({
                 </div>
                 <RuntimeSettings status={runtime} onStatus={setRuntime} />
                 <DesktopPanel status={runtime} />
-                <SessionControls />
                 <div className="setting-row">
                   <div>
                     <strong>Appearance</strong>

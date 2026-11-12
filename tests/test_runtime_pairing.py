@@ -3,18 +3,18 @@ from concurrent.futures import ThreadPoolExecutor
 from uuid import uuid4
 
 import pytest
+from fastapi.testclient import TestClient
 from sqlalchemy import select, update
 
 from apps.api.main import create_app
 from memory.store import runtime_devices, runtime_pairings
-from tests.client import ApiClient
 from tests.fakes import FakeProvider
 
 
 @pytest.fixture
 def runtime_client(tmp_path):
     app = create_app(tmp_path / "db.sqlite", FakeProvider([]), tmp_path / "workspace")
-    with ApiClient(
+    with TestClient(
         app, base_url="http://127.0.0.1:8000", client=("127.0.0.1", 12345)
     ) as client:
         yield client
@@ -157,14 +157,12 @@ def test_runtime_rejects_web_credentials_remote_peers_and_hosts(
         ).status_code
         == 403
     )
-    with ApiClient(
+    with TestClient(
         create_app(tmp_path / "remote.db", FakeProvider([]), tmp_path / "other"),
         base_url="http://127.0.0.1:8000",
         client=("192.0.2.1", 1234),
-        authenticate=False,
     ) as remote:
         assert remote.get("/api/v1/runtime/status").status_code == 403
-        assert remote.post("/api/v1/auth/launch").status_code == 403
     invalid = client.post(
         "/api/v1/runtime/pairing/claim", json={**claim, "platform": claim["code"]}
     )
@@ -173,7 +171,7 @@ def test_runtime_rejects_web_credentials_remote_peers_and_hosts(
 
 def test_restart_retains_pairing_but_requires_fresh_heartbeat(tmp_path):
     database, workspace = tmp_path / "db.sqlite", tmp_path / "workspace"
-    with ApiClient(
+    with TestClient(
         create_app(database, FakeProvider([]), workspace),
         base_url="http://127.0.0.1:8000",
         client=("127.0.0.1", 1234),
@@ -181,7 +179,7 @@ def test_restart_retains_pairing_but_requires_fresh_heartbeat(tmp_path):
         conversation = client.post("/api/v1/conversations").json()
         credential = pair(client)
         assert heartbeat(client, credential).json()["connected"]
-    with ApiClient(
+    with TestClient(
         create_app(database, FakeProvider([]), workspace),
         base_url="http://127.0.0.1:8000",
         client=("127.0.0.1", 1234),

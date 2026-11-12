@@ -13,7 +13,6 @@
     "gen:types": "node scripts/contracts.mjs",
     "gen:types:live": "node scripts/contracts.mjs --live",
     "check:types": "node scripts/contracts.mjs --check",
-    "unlock": "node scripts/unlock.mjs",
     "test:e2e": "playwright test --config tests/e2e/playwright.config.ts"
   },
   "dependencies": {

@@ -29,7 +29,7 @@ Pydantic in `apps/api/contracts.py` is authoritative. `packages/contracts/api.d.
 - Agent and opt-in speech requests share one inference semaphore. Summarizer/embedder are configuration-only. No silent hosted fallback exists. Hosted endpoints must be HTTPS; local endpoints are loopback.
 - Trace redaction covers configured secrets, common credential fields, bearer strings, and key/password/token patterns. No universal redactor can recognize every possible secret; traces may contain personal file content.
 - The sandbox assumes a user-controlled local workspace. It is not an OS security boundary against a hostile process concurrently replacing paths; stronger handle-level filesystem isolation remains future hardening.
-- Only loopback use with one worker is supported. Since milestone 8A, every request needs a loopback peer and Host. Browser API access also needs the proxy's derived key and a hashed session created from a one-time local launch link; see [security boundary](SECURITY_BOUNDARY.md). Multi-user isolation, browser forms/authentication, arbitrary desktop input, scheduling, and integrations are not implemented.
+- Only loopback use with one worker is supported. Web-account authentication, multi-user isolation, browser forms/authentication, arbitrary desktop input, scheduling, and integrations are not implemented.
 
 ## Frontend
 

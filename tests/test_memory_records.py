@@ -2,17 +2,18 @@ import json
 import time
 from uuid import uuid4
 
+from fastapi.testclient import TestClient
+
 from apps.api.contracts import MemoryInput
 from apps.api.main import create_app
 from memory.records import MemoryService
-from tests.client import ApiClient
 from tests.fakes import FakeProvider
 
 
 def test_memory_crud_revision_scope_retrieval_and_deletion(tmp_path):
     provider = FakeProvider([])
     app = create_app(tmp_path / "memory.db", provider, tmp_path / "workspace")
-    with ApiClient(app) as client:
+    with TestClient(app) as client:
         one = client.post("/api/v1/conversations").json()["id"]
         two = client.post("/api/v1/conversations").json()["id"]
         body = {"key": "editor", "content": "Prefer VS Code editor", "confirmed": True}
@@ -65,7 +66,7 @@ def test_memory_crud_revision_scope_retrieval_and_deletion(tmp_path):
         client.post(f"/api/v1/memories/{scoped['id']}/delete")
         client.post(f"/api/v1/memories/{created['id']}/delete")
         assert service.retrieve("editor", one) == []
-    with ApiClient(
+    with TestClient(
         create_app(tmp_path / "memory.db", FakeProvider([]), tmp_path / "workspace")
     ) as restarted:
         assert (
@@ -78,7 +79,7 @@ def test_memory_bounds_and_untrusted_context(tmp_path):
     from apps.api.contracts import Conversation, MemoryRecord, Task
 
     app = create_app(tmp_path / "memory.db", FakeProvider([]), tmp_path / "workspace")
-    with ApiClient(app) as client:
+    with TestClient(app) as client:
         assert (
             client.post(
                 "/api/v1/memories", json={"key": "  ", "content": "x"}

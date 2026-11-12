@@ -1,90 +1,5 @@
 // Generated from apps/api Pydantic contracts. Do not edit.
 export interface paths {
-    "/api/v1/auth/launch": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Auth Launch */
-        post: operations["auth_launch_api_v1_auth_launch_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/auth/redeem": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Auth Redeem */
-        post: operations["auth_redeem_api_v1_auth_redeem_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/auth/session": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Auth Session */
-        get: operations["auth_session_api_v1_auth_session_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/auth/logout": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Auth Logout */
-        post: operations["auth_logout_api_v1_auth_logout_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/auth/revoke-all": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Auth Revoke All */
-        post: operations["auth_revoke_all_api_v1_auth_revoke_all_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/health": {
         parameters: {
             query?: never;
@@ -812,18 +727,6 @@ export interface components {
              */
             mode: string;
         };
-        /** LaunchCode */
-        LaunchCode: {
-            /** Code */
-            code: string;
-            /** Expiresat */
-            expiresAt: string;
-        };
-        /** LaunchRedeem */
-        LaunchRedeem: {
-            /** Code */
-            code: string;
-        };
         /** MemoryInput */
         MemoryInput: {
             /** Key */
@@ -1048,25 +951,6 @@ export interface components {
              */
             requestId: string;
         };
-        /** SessionGrant */
-        SessionGrant: {
-            /** Token */
-            token: string;
-            /** Expiresat */
-            expiresAt: string;
-        };
-        /** SessionStatus */
-        SessionStatus: {
-            /**
-             * Authenticated
-             * @default true
-             */
-            authenticated: boolean;
-            /** Expiresat */
-            expiresAt: string;
-            /** Activesessions */
-            activeSessions: number;
-        };
         /** Settings */
         Settings: {
             /**
@@ -1281,115 +1165,6 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
-    auth_launch_api_v1_auth_launch_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["LaunchCode"];
-                };
-            };
-        };
-    };
-    auth_redeem_api_v1_auth_redeem_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["LaunchRedeem"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SessionGrant"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    auth_session_api_v1_auth_session_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SessionStatus"];
-                };
-            };
-        };
-    };
-    auth_logout_api_v1_auth_logout_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    auth_revoke_all_api_v1_auth_revoke_all_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
     health_api_v1_health_get: {
         parameters: {
             query?: never;

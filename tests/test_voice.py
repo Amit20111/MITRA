@@ -112,16 +112,17 @@ def test_voice_cancel_releases_shared_slot(monkeypatch):
 
 
 def test_voice_api_is_review_only_and_serializes_with_agent(tmp_path, monkeypatch):
+    from fastapi.testclient import TestClient
+
     from apps.api.main import create_app
     from models.providers import CompatibleProvider
-    from tests.client import ApiClient
 
     for role in ("STT", "TTS"):
         monkeypatch.setenv(f"LLM_{role}_MODEL", "synthetic")
         monkeypatch.setenv(f"LLM_{role}_BASE_URL", "http://127.0.0.1:9999/v1")
     monkeypatch.setenv("MITRA_VOICE_ENABLED", "true")
     app = create_app(tmp_path / "voice.db", workspace=tmp_path / "workspace")
-    with ApiClient(app) as client:
+    with TestClient(app) as client:
         assert isinstance(app.state.agent.provider, CompatibleProvider)
         assert app.state.voice_service.slot is app.state.agent.provider.slot
         app.state.voice_service.transport = httpx.MockTransport(

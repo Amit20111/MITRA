@@ -4,7 +4,7 @@
 
 **A supervised personal AI agent that keeps you in control.**
 
-Bounded file tools · Explicit approvals · Local security boundary · User-managed memory · Opt-in browser, Windows runtime & voice
+Bounded file tools · Explicit approvals · User-managed memory · Opt-in browser, Windows runtime & voice
 
 <p>
   <a href="https://github.com/Amit20111/MITRA/actions/workflows/ci.yml">
@@ -24,7 +24,7 @@ Bounded file tools · Explicit approvals · Local security boundary · User-mana
   <a href="#capabilities--boundaries">Capabilities</a> ·
   <a href="#repository">Repository</a> ·
   <a href="#contracts-and-checks">Checks</a> ·
-  <a href="docs/SECURITY_BOUNDARY.md">Security Boundary</a> ·
+  <a href="docs/ARCHITECTURE.md">Architecture</a> ·
   <a href="PROJECT_PROGRESS.md">Roadmap</a>
 </p>
 
@@ -58,9 +58,8 @@ The responsive frontend uses a navy-and-cyan command workspace with live applica
 | **Windows runtime** | Separately launched helper (`apps/runtime`) with DPAPI-protected credentials, heartbeat, and opt-in `run --desktop` for exact-approved window inspection, capture, and focus | Arbitrary desktop typing/clicking, unauthenticated control ports, auto-start |
 | **Memory** | Explicit user-authored records with revisions, provenance, global/conversation scopes, and bounded lexical retrieval (up to 3 records) | Automatic memory harvesting, silent promotion to instructions/permissions |
 | **Voice** | Opt-in STT/TTS adapters (`MITRA_VOICE_ENABLED=true`), explicit recording, editable transcript review, and requested playback | Wake-word detection, background recording, automatic transcript submission |
-| **Local security (8A)** | Loopback peer & Host enforcement, per-install local key, Next.js proxy with derived web key, one-time launch links, `HttpOnly` `SameSite=Strict` sessions, CSP & rate limits | Public hosting, multi-user isolation |
 
-See [browser setup and boundaries](docs/BROWSER_PHASE.md), [Windows runtime setup](docs/WINDOWS_RUNTIME.md), [memory and voice](docs/MEMORY_AND_VOICE.md), and [local security boundary](docs/SECURITY_BOUNDARY.md).
+See [browser setup and boundaries](docs/BROWSER_PHASE.md), [Windows runtime setup](docs/WINDOWS_RUNTIME.md), and [memory and voice](docs/MEMORY_AND_VOICE.md).
 
 ## Repository
 
@@ -126,9 +125,9 @@ The API can start without a model, but requests fail honestly with a configurati
 .venv\Scripts\python -m uvicorn apps.api.main:app --host 127.0.0.1 --port 8000 --workers 1 --no-access-log
 ```
 
-Startup also applies Alembic migrations. SQLite uses `.data/mitra-slice1.db`. Previous milestone databases (`mitra.db`, test databases) are preserved and not automatically imported. Run one API worker; this is a local, single-user service, not a public deployment. On first start the API creates a per-install key at `%LOCALAPPDATA%\MITRA\local-api.key`, restricted to your Windows account.
+Startup also applies Alembic migrations. SQLite uses `.data/mitra-slice1.db`. Previous milestone databases (`mitra.db`, test databases) are preserved and not automatically imported. Run one API worker; this is a local, single-user service, not an authenticated public deployment.
 
-### 3. Start the frontend and unlock
+### 3. Start the frontend
 
 In another terminal:
 
@@ -136,13 +135,7 @@ In another terminal:
 npm run dev
 ```
 
-Generate a one-time launch link (valid for two minutes, single use) and open it in your browser:
-
-```powershell
-npm run unlock
-```
-
-The link sets an `HttpOnly`, `SameSite=Strict` session cookie (seven days by default; `MITRA_SESSION_HOURS`, 1–720). Without it, **http://127.0.0.1:3000** shows the locked screen and every API request returns `401`. **Settings → Browser session** can lock this session or revoke all sessions. Interactive API docs are disabled; `npm run gen:types:live` reads the local key to fetch the OpenAPI schema. The frontend proxy forwards `/api/v1/*` to the API with a derived key. A custom `MITRA_API_URL` belongs in the frontend shell or `Frontend/.env.local`, not root `.env`. See [security boundary](docs/SECURITY_BOUNDARY.md).
+Open **http://127.0.0.1:3000**. API docs: **http://127.0.0.1:8000/docs**. Frontend requests proxy `/api/v1/*` to the API. A custom `MITRA_API_URL` belongs in the frontend shell or `Frontend/.env.local`, not root `.env`.
 
 Try: `Read notes.txt in the workspace and summarize it.` Then ask to create a file. A write creates a pending approval containing the exact target/content. Approving permits execution; rejection never dispatches that write. Successful writes show `verified` after hash read-back. Earlier completed steps are not undone by cancelling a task.
 
@@ -195,7 +188,6 @@ The runner creates temporary workspaces and executes the real orchestration/API/
 ## Documentation
 
 - [Architecture & limitations](docs/ARCHITECTURE.md)
-- [Local security boundary](docs/SECURITY_BOUNDARY.md)
 - [API & SSE event contract](docs/API_CONTRACT.md)
 - [Browser setup & boundaries](docs/BROWSER_PHASE.md)
 - [Windows runtime setup](docs/WINDOWS_RUNTIME.md)

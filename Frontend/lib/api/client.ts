@@ -4,7 +4,6 @@ import type {
   MemoryUpdate,
   DesktopJob,
   DesktopRequest,
-  SessionStatus,
 } from "../types";
 import type {
   Conversation,
@@ -28,15 +27,6 @@ async function request<T>(path: string, body?: unknown): Promise<T> {
     cache: "no-store",
   });
   if (!response.ok) {
-    if (
-      response.status === 401 &&
-      typeof window !== "undefined" &&
-      !window.location.pathname.startsWith("/locked")
-    ) {
-      // A full document load discards in-memory workspace data once locked.
-      // eslint-disable-next-line @next/next/no-location-assign-relative-destination
-      window.location.assign("/locked?reason=expired");
-    }
     const result = await response.json().catch(() => null);
     throw new Error(
       typeof result?.detail === "string"
@@ -44,14 +34,10 @@ async function request<T>(path: string, body?: unknown): Promise<T> {
         : `API request failed (${response.status}). Check the backend connection.`,
     );
   }
-  if (response.status === 204) return undefined as T;
   return response.json() as Promise<T>;
 }
 
 export const agentClient = {
-  session: () => request<SessionStatus>("/auth/session"),
-  logout: () => request<void>("/auth/logout", {}),
-  revokeAllSessions: () => request<void>("/auth/revoke-all", {}),
   memories: () => request<MemoryRecord[]>("/memories"),
   saveMemory: (body: MemoryInput) => request<MemoryRecord>("/memories", body),
   updateMemory: (id: string, body: MemoryUpdate) =>

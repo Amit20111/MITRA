@@ -22,7 +22,7 @@ This is the ongoing project update report. Update it after each implementation p
 | 5 - Paired Windows runtime | Implemented for pairing, observation, captures and exact-approved window focus |
 | 6 - User-managed memory | Implemented: CRUD, provenance, scoped bounded retrieval |
 | 7 - Voice | Implemented with opt-in speech adapters and reviewed transcripts; live acceptance deferred |
-| 8 — Desktop packaging and production hardening | **8A** (local security boundary) implemented and tested; **8B** (data ops) and **8C** (Tauri shell) next |
+| 8 — Desktop packaging and production hardening | Not started (8A local lock/session gate removed per user request for direct local access) |
 
 ## Detailed phase goals and completion criteria
 
@@ -395,31 +395,28 @@ Instructions: [Windows runtime](docs/WINDOWS_RUNTIME.md), [Memory and voice](doc
 - Pytest emitted an existing shared-cache permission warning; tests passed using an isolated temporary directory. Initial default-temp test setup also hit a Windows permission error, resolved by setting pytest's basetemp.
 
 
-## 13 November 2026 - Phase 8A: Local security boundary & README refresh
+## 13 November 2026 - Direct local access restored & README refresh
 
 ### Delivered
 
-- Added per-install local key management (`apps/api/local_key.py`): 256-bit key at `%LOCALAPPDATA%\MITRA\local-api.key` (`MITRA_SECRET_DIR` override), atomic hard-link creation, Windows ACL restriction to the current user SID (`0600` on POSIX), and HMAC-SHA256 derived `mitra-web-v1` web key. Both keys are registered with `Redactor`.
-- Added one-time launch codes and hashed browser sessions (`apps/api/auth_service.py`, Alembic migration `0004_auth_sessions`): 120s single-use launch codes (max 5 pending), SHA-256 session token hashes in SQLite (`MITRA_SESSION_HOURS`, default 168h), logout, revoke-all, and SSE stream session rechecks.
-- Added unified API security middleware (`apps/api/security_guard.py`) enforcing loopback peer + Host validation (DNS-rebinding protection), Origin allowlist, per-category in-memory rate limits with `Retry-After`, control-route isolation (`/api/v1/auth/launch`, `/api/v1/auth/redeem`, `/openapi.json`), `/docs` and `/redoc` removal, and security response headers (`no-store`, `nosniff`, `DENY`, `no-referrer`, `CORP: same-origin`).
-- Added `Frontend/proxy.ts`, `/locked` (`Frontend/app/locked/page.tsx`), `Frontend/components/session-controls.tsx`, `scripts/unlock.mjs` (`npm run unlock`), CSP/security headers in `Frontend/next.config.mjs`, and removed the unauthenticated rewrite fallback. Updated `scripts/contracts.mjs` (`--live`) to pass the local key.
-- Added `tests/client.py` (`ApiClient`), `tests/conftest.py`, `tests/test_security_boundary.py`, and updated `evals/run.py` and `tests/e2e/workflow.spec.ts` for authenticated local testing.
-- Documented the boundary in `docs/SECURITY_BOUNDARY.md`, `docs/ARCHITECTURE.md`, `AGENTS.md`, `.env.example`, and refreshed `README.md` with a centered OSS header, CI/stack badges, and capabilities/boundaries table.
+- Removed the Phase 8A local lock/session/key gate (`apps/api/local_key.py`, `apps/api/auth_service.py`, `apps/api/security_guard.py`, `Frontend/proxy.ts`, `Frontend/app/locked/`, `Frontend/components/session-controls.tsx`, `scripts/unlock.mjs`, `docs/SECURITY_BOUNDARY.md`) per user request so `http://127.0.0.1:3000` opens directly on the local machine without a launch link.
+- Restored `origin_guard` in `apps/api/main.py` (loopback Host/peer checks on `/api/v1/runtime/` and `Origin` allowlist) and `/api/v1/*` rewrites in `Frontend/next.config.mjs`. Retained `0004_auth_sessions.py` migration file so existing databases remain compatible with Alembic.
+- Kept the refreshed `README.md` (centered header, CI/stack badges, capabilities & boundaries table, and `docs/screenshots/mitra-desktop.png`).
+- Regenerated `packages/contracts/api.d.ts` and restored `TestClient` across `tests/` and `evals/run.py`.
 
 ### Actual verification
 
 | Check | Result |
 | --- | --- |
-| Full Python suite (`pytest`) | **199 passed** (includes 7 new Phase 8A security boundary tests) |
-| Strict Python typing (`mypy`) | Passed across 42 source files |
+| Full Python suite (`pytest`) | **192 passed** |
+| Strict Python typing (`mypy`) | Passed across 39 source files |
 | Ruff (`ruff check`) | Passed |
 | Generated contract drift (`npm run check:types`) | Passed |
 | Frontend lint, TypeScript, component tests, production build | Passed (`8/8` component/event tests) |
-| Browser E2E (`npm run test:e2e`) | **8 passed** (including unauthenticated lock, single-use launch link unlock, and session lock/revoke) |
-| Scripted eval regression (`evals.run --provider fake`) | **20/20** expected outcomes; `evals/results/fake-20261112T180513Z.json` |
+| Browser E2E (`npm run test:e2e`) | **7 passed** (28.1s) |
+| Scripted eval regression (`evals.run --provider fake`) | **20/20** expected outcomes; `evals/results/fake-20261112T184355Z.json` |
 
 ### Limits and next work
 
-- `script-src` retains `'unsafe-inline'` for static Next.js rendering (`connect-src 'self'` constrains exfiltration); nonce/hash CSP is deferred. Same-user processes can still read `%LOCALAPPDATA%\MITRA\local-api.key`; OS-level secret wrapping for the shell is planned for 8C.
-- Rate limits are global and in-memory. No live model or hosted provider was started or called.
-- **Next: Phase 8B**, data operations (backup/restore, conversation deletion, retention/privacy controls, and diagnostics), followed by **Phase 8C** (Tauri desktop shell).
+- The web UI and local API are directly accessible on loopback without a browser session cookie; only the `origin_guard` (`Origin` allowlist + `/api/v1/runtime/` loopback checks) is active.
+- **Next: Phase 8B** (data ops: backup/restore, conversation deletion, retention/privacy controls, diagnostics) or **8C** (Tauri desktop shell).

@@ -105,14 +105,6 @@ memory_records = Table(
     Column("id", String, primary_key=True),
     Column("payload", JSON, nullable=False),
 )
-auth_sessions = Table(
-    "auth_sessions",
-    metadata,
-    Column("id", String, primary_key=True),
-    Column("token_hash", String, nullable=False, unique=True),
-    Column("created", Float, nullable=False),
-    Column("expires", Float, nullable=False),
-)
 
 
 class Store:
