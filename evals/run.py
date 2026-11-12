@@ -3,19 +3,20 @@
 import argparse
 import json
 import logging
+import os
 import tempfile
 import time
 from datetime import UTC, datetime
 from pathlib import Path
 from uuid import uuid4
 
-from fastapi.testclient import TestClient
 from sqlalchemy import select
 
 from apps.api.config import Config
 from apps.api.contracts import NormalizedResponse
 from apps.api.main import create_app
 from memory.store import traces
+from tests.client import ApiClient
 from tests.fakes import FakeProvider
 
 
@@ -69,7 +70,8 @@ def main() -> None:
                 if args.provider == "fake"
                 else None
             )
-            with TestClient(
+            os.environ["MITRA_SECRET_DIR"] = str(root / "secrets")
+            with ApiClient(
                 create_app(root / "db.sqlite", provider, workspace)
             ) as client:
                 conversation = client.post("/api/v1/conversations").json()

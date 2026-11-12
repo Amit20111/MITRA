@@ -4,12 +4,12 @@ import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import pytest
-from fastapi.testclient import TestClient
 from sqlalchemy import select
 
 from apps.api.contracts import ToolCall
 from apps.api.main import create_app
 from memory.store import traces
+from tests.client import ApiClient
 from tests.fakes import FakeProvider, final, tool
 from tests.test_workflow import submit, wait_for
 from tools.browser import BrowserInspector, canonical_url, parse_origins
@@ -150,7 +150,7 @@ def test_browser_agent_trace_and_no_instruction_execution(site, tmp_path, monkey
     provider = FakeProvider(
         [tool("inspect_page", url=origin + "/"), final("Read the page.")]
     )
-    with TestClient(
+    with ApiClient(
         create_app(tmp_path / "db.sqlite", provider, tmp_path / "workspace")
     ) as client:
         settings = client.get("/api/v1/settings").json()

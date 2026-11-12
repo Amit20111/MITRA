@@ -331,3 +331,23 @@ class SpeechInput(Contract):
 class SpeechAudio(Contract):
     audio: str = Field(repr=False)
     mime: Literal["audio/mpeg"] = "audio/mpeg"
+
+
+class LaunchCode(Contract):
+    code: str = Field(repr=False)
+    expiresAt: str
+
+
+class LaunchRedeem(Contract):
+    code: str = Field(min_length=20, max_length=100, pattern=r"^[A-Za-z0-9_-]+$", repr=False)
+
+
+class SessionGrant(Contract):
+    token: str = Field(repr=False)
+    expiresAt: str
+
+
+class SessionStatus(Contract):
+    authenticated: bool = True
+    expiresAt: str
+    activeSessions: int

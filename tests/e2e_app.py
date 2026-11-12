@@ -11,6 +11,7 @@ from tests.fakes import FakeProvider, final, tool
 
 sandbox = tempfile.TemporaryDirectory(prefix="mitra-e2e-")
 root = Path(sandbox.name)
+os.environ.setdefault("MITRA_SECRET_DIR", str(root / "secrets"))
 os.environ["MITRA_BROWSER_ORIGINS"] = "http://127.0.0.1:8007"
 os.environ["MITRA_BROWSER_INTERACTION"] = "true"
 

@@ -1,42 +1,81 @@
+<div align="center">
+
 # MITRA
 
-**A supervised personal AI agent that keeps you in control.** MITRA combines a conversational workspace with bounded file tools, explicit approvals, persistent user-managed memory, and optional browser, Windows desktop, and voice features.
+**A supervised personal AI agent that keeps you in control.**
 
-The default provider is an explicitly configured OpenAI-compatible model endpoint. MITRA does not start or download models automatically, and it has no production fake-provider fallback.
+Bounded file tools · Explicit approvals · Local security boundary · User-managed memory · Opt-in browser, Windows runtime & voice
+
+<p>
+  <a href="https://github.com/Amit20111/MITRA/actions/workflows/ci.yml">
+    <img src="https://img.shields.io/github/actions/workflow/status/Amit20111/MITRA/ci.yml?branch=main&logo=github&label=CI" alt="CI Status" />
+  </a>
+  <img src="https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white" alt="Python 3.11+" />
+  <img src="https://img.shields.io/badge/FastAPI-0.115%2B-009688?logo=fastapi&logoColor=white" alt="FastAPI" />
+  <img src="https://img.shields.io/badge/Next.js-16-000000?logo=nextdotjs&logoColor=white" alt="Next.js 16" />
+  <img src="https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white" alt="TypeScript 5" />
+  <img src="https://img.shields.io/badge/lint-Ruff-D7FF64?logo=ruff&logoColor=111827" alt="Ruff" />
+  <img src="https://img.shields.io/badge/code_style-Prettier-ff69b4?logo=prettier&logoColor=white" alt="Code style: Prettier" />
+  <img src="https://img.shields.io/badge/platform-Windows-0078D6?logo=windows&logoColor=white" alt="Windows" />
+</p>
+
+<p>
+  <a href="#windows-setup">Quick Start</a> ·
+  <a href="#capabilities--boundaries">Capabilities</a> ·
+  <a href="#repository">Repository</a> ·
+  <a href="#contracts-and-checks">Checks</a> ·
+  <a href="docs/SECURITY_BOUNDARY.md">Security Boundary</a> ·
+  <a href="PROJECT_PROGRESS.md">Roadmap</a>
+</p>
+
+</div>
+
+---
+
+MITRA pairs a Next.js command workspace with a FastAPI orchestrator, SQLite persistence, an optional local `llama.cpp` or hosted OpenAI-compatible model endpoint, and a separately paired Windows helper.
+
+> [!NOTE]
+> The default provider is an explicitly configured OpenAI-compatible model endpoint. MITRA does **not** start or download models automatically, and it has no production fake-provider fallback.
 
 ## Frontend screenshots
 
 <p align="center">
-  <img src="docs/screenshots/mitra-desktop.png" alt="MITRA desktop workspace" width="720">
-  <img src="docs/screenshots/mitra-mobile.png" alt="MITRA mobile workspace" width="220">
+  <img src="docs/screenshots/mitra-desktop.png" alt="MITRA desktop workspace" width="760" />
 </p>
 
-<p align="center"><em>Desktop and mobile workspace. Screenshots use the deterministic test API; they do not represent live model output.</em></p>
+<p align="center">
+  <em>MITRA Command Workspace. Screenshot uses the deterministic test API; it does not represent live model output.</em>
+</p>
 
-## Highlights
+The responsive frontend uses a navy-and-cyan command workspace with live application state; it does not fabricate uptime, connection status, or latency. On small screens, task overview is available from the header.
 
-- Review and approve exact proposed file writes before they run.
-- Keep file access inside the configured workspace; there is no generic shell tool.
-- Opt in to trusted browser origins and separately approved link/text interactions.
-- Pair the Windows runtime for heartbeat; explicitly enable exact-approved window inspection, capture, or focus.
-- Manage explicit memory records and revisions; voice is opt-in and never submits a transcript automatically.
+## Capabilities & boundaries
 
-Browser interaction is disabled by default. Browser forms, authentication, uploads, page scripts, unrestricted desktop input, and scheduled workers are not implemented. See [browser setup and boundaries](docs/BROWSER_PHASE.md), [Windows runtime setup](docs/WINDOWS_RUNTIME.md), and [memory and voice](docs/MEMORY_AND_VOICE.md).
+| Area | Implemented | Intentionally excluded / blocked |
+| --- | --- | --- |
+| **File tools** | Workspace-sandboxed `list_directory`, `read_file`, and `write_file` with exact SHA-256 argument approval and read-back verification | Generic shell tool, automatic approval bypass, workspace escapes |
+| **Browser** | Opt-in read-only `inspect_page` (`MITRA_BROWSER_ORIGINS`); optional task-owned sessions (`MITRA_BROWSER_INTERACTION=true`) for exact-approved links and ordinary text fields | Form submission, authentication, password fields, uploads, downloads, arbitrary page scripts |
+| **Windows runtime** | Separately launched helper (`apps/runtime`) with DPAPI-protected credentials, heartbeat, and opt-in `run --desktop` for exact-approved window inspection, capture, and focus | Arbitrary desktop typing/clicking, unauthenticated control ports, auto-start |
+| **Memory** | Explicit user-authored records with revisions, provenance, global/conversation scopes, and bounded lexical retrieval (up to 3 records) | Automatic memory harvesting, silent promotion to instructions/permissions |
+| **Voice** | Opt-in STT/TTS adapters (`MITRA_VOICE_ENABLED=true`), explicit recording, editable transcript review, and requested playback | Wake-word detection, background recording, automatic transcript submission |
+| **Local security (8A)** | Loopback peer & Host enforcement, per-install local key, Next.js proxy with derived web key, one-time launch links, `HttpOnly` `SameSite=Strict` sessions, CSP & rate limits | Public hosting, multi-user isolation |
+
+See [browser setup and boundaries](docs/BROWSER_PHASE.md), [Windows runtime setup](docs/WINDOWS_RUNTIME.md), [memory and voice](docs/MEMORY_AND_VOICE.md), and [local security boundary](docs/SECURITY_BOUNDARY.md).
 
 ## Repository
 
 ```text
-Frontend/             Next.js command interface with cyan accents and live task indicators
-apps/api/             FastAPI, Pydantic contracts, configuration, Alembic migrations
+Frontend/             Next.js command interface with cyan accents, proxy guard, and live task indicators
+apps/api/             FastAPI, Pydantic contracts, local security guard, configuration, Alembic migrations
 apps/runtime/         Windows helper: encrypted pairing, opt-in observation/capture/focus
 packages/contracts/   Generated TypeScript API types (do not edit)
-agent/                State machine, bounded context, step-at-a-time orchestrator
-models/               OpenAI-compatible streaming adapter for llama.cpp or hosted API
+agent/                State machine, bounded context, packaged system prompt, step-at-a-time orchestrator
+models/               OpenAI-compatible streaming adapter for llama.cpp or hosted API, voice adapters
 security/             Central approval policy and trace redaction
-tools/                Fixed file-tool registry, path sandbox, subprocess dispatcher
-memory/               SQLAlchemy SQLite storage
+tools/                Fixed file-tool registry, path sandbox, browser adapters, subprocess dispatcher
+memory/               SQLAlchemy SQLite storage and user-managed memory service
 observability/        Structured logs and redacted JSONL trace export
-tests/                API/policy/adapter tests and browser E2E
+tests/                API/policy/security/adapter tests and browser E2E
 Frontend/tests/       Approval-state and event-de-duplication tests
 evals/                20 scripted/live cases, runner, saved results
 ```
@@ -45,7 +84,7 @@ The API uses SQLite through SQLAlchemy/Alembic. Entity IDs are UUIDs; SSE uses a
 
 ## Windows setup
 
-Clone the repository and run commands from its root. Requires Python 3.11+, Node.js 20.9+, and, if using a local model, a separately installed llama.cpp build and model. No model is downloaded automatically.
+Requires **Python 3.11+**, **Node.js 20.9+**, and (if using local inference) a separately installed `llama.cpp` build and GGUF model.
 
 ```powershell
 git clone https://github.com/Amit20111/MITRA.git
@@ -66,7 +105,7 @@ In the directory containing `llama-server.exe`, use your actual GGUF path:
 .\llama-server.exe -m "C:\Models\Qwen3.5-9B-Q4_K_M.gguf" --alias mitra-local --host 127.0.0.1 --port 8080 -ngl 0 -c 4096 --parallel 1 --jinja
 ```
 
-The path is an example, not an included model. Use a llama.cpp build that supports your model. Keep one local model running. The backend sends `chat_template_kwargs.enable_thinking=false` by default, serializes model calls, bounds context/tool output, and limits output to 1,024 tokens. CPU latency depends on your machine; a live Qwen run has not been verified here.
+The path is an example, not an included model. Use a `llama.cpp` build that supports your model. Keep one local model running. The backend sends `chat_template_kwargs.enable_thinking=false` by default, serializes model calls, bounds context/tool output, and limits output to 1,024 tokens. CPU latency depends on your machine; a live Qwen run has not been verified here.
 
 Set these in root `.env`:
 
@@ -87,9 +126,9 @@ The API can start without a model, but requests fail honestly with a configurati
 .venv\Scripts\python -m uvicorn apps.api.main:app --host 127.0.0.1 --port 8000 --workers 1 --no-access-log
 ```
 
-Startup also applies Alembic migrations. SQLite uses `.data/mitra-slice1.db`. Previous milestone databases (`mitra.db`, test databases) are preserved and not automatically imported. Run one API worker; this is a local, single-user service, not an authenticated public deployment.
+Startup also applies Alembic migrations. SQLite uses `.data/mitra-slice1.db`. Previous milestone databases (`mitra.db`, test databases) are preserved and not automatically imported. Run one API worker; this is a local, single-user service, not a public deployment. On first start the API creates a per-install key at `%LOCALAPPDATA%\MITRA\local-api.key`, restricted to your Windows account.
 
-### 3. Start the frontend
+### 3. Start the frontend and unlock
 
 In another terminal:
 
@@ -97,23 +136,29 @@ In another terminal:
 npm run dev
 ```
 
-Open **http://127.0.0.1:3000**. API docs: **http://127.0.0.1:8000/docs**. Frontend requests proxy `/api/v1/*` to the API. A custom `MITRA_API_URL` belongs in the frontend shell or `Frontend/.env.local`, not root `.env`.
+Generate a one-time launch link (valid for two minutes, single use) and open it in your browser:
+
+```powershell
+npm run unlock
+```
+
+The link sets an `HttpOnly`, `SameSite=Strict` session cookie (seven days by default; `MITRA_SESSION_HOURS`, 1–720). Without it, **http://127.0.0.1:3000** shows the locked screen and every API request returns `401`. **Settings → Browser session** can lock this session or revoke all sessions. Interactive API docs are disabled; `npm run gen:types:live` reads the local key to fetch the OpenAPI schema. The frontend proxy forwards `/api/v1/*` to the API with a derived key. A custom `MITRA_API_URL` belongs in the frontend shell or `Frontend/.env.local`, not root `.env`. See [security boundary](docs/SECURITY_BOUNDARY.md).
 
 Try: `Read notes.txt in the workspace and summarize it.` Then ask to create a file. A write creates a pending approval containing the exact target/content. Approving permits execution; rejection never dispatches that write. Successful writes show `verified` after hash read-back. Earlier completed steps are not undone by cancelling a task.
 
 ## Optional Windows runtime
 
-Settings can pair and revoke the separate Windows helper. See [runtime setup and boundaries](docs/WINDOWS_RUNTIME.md). Pairing alone supports heartbeat; `run --desktop` opts into exact-approved window inspection, capture and focus. No model is required, and nothing starts automatically.
+Settings can pair and revoke the separate Windows helper. See [runtime setup and boundaries](docs/WINDOWS_RUNTIME.md). Pairing alone supports heartbeat; `run --desktop` opts into exact-approved window inspection, capture, and focus. No model is required, and nothing starts automatically.
 
 ## Memory and voice
 
-The Memory screen saves explicit confirmed facts, supports editing/deletion, and retrieves bounded relevant records per task. The microphone control supports opt-in recording, transcript review and playback through explicitly configured speech providers. Voice is disabled by default and never starts a model. See [memory/voice setup and limits](docs/MEMORY_AND_VOICE.md).
+The Memory screen saves explicit confirmed facts, supports editing/deletion, and retrieves bounded relevant records per task. The microphone control supports opt-in recording, transcript review, and playback through explicitly configured speech providers. Voice is disabled by default and never starts a model. See [memory/voice setup and limits](docs/MEMORY_AND_VOICE.md).
 
 ## Provider roles and hosted comparison
 
-`agent`, `summarizer`, `embedder`, `stt`, and `tts` accept `LLM_<ROLE>_PROVIDER`, `BASE_URL`, `MODEL`, and `API_KEY`. General roles inherit agent configuration, but speech additionally requires explicit STT/TTS URLs, model names and MITRA_VOICE_ENABLED=true. Summarizer/embedder remain configuration-only. Settings displays public configuration, never keys.
+`agent`, `summarizer`, `embedder`, `stt`, and `tts` accept `LLM_<ROLE>_PROVIDER`, `BASE_URL`, `MODEL`, and `API_KEY`. General roles inherit agent configuration, but speech additionally requires explicit STT/TTS URLs, model names, and `MITRA_VOICE_ENABLED=true`. Summarizer/embedder remain configuration-only. Settings displays public configuration, never keys.
 
-For a compatible hosted endpoint, explicitly set `LLM_AGENT_PROVIDER=hosted`, its HTTPS `LLM_AGENT_BASE_URL`, model, and key in root `.env`. Restart the API. Hosted operation and local inference have not been live-tested; HTTP adapter behavior is tested with mocked transport.
+For a compatible hosted endpoint, explicitly set `LLM_AGENT_PROVIDER=hosted`, its HTTPS `LLM_AGENT_BASE_URL`, model, and key in root `.env`, then restart the API. Hosted operation and local inference have not been live-tested; HTTP adapter behavior is tested with mocked transport.
 
 ## Contracts and checks
 
@@ -147,7 +192,12 @@ The exporter refuses to overwrite an existing file and re-applies redaction. Tra
 
 The runner creates temporary workspaces and executes the real orchestration/API/tool stack. It auto-approves **only the exact write expected by the fixture**, and denies unexpected proposals. Saved results are in `evals/results/`. Scripted scores verify infrastructure, not real-model reasoning or injection resistance. Missing model configuration is recorded as `not_run`, not a passing score.
 
-See [architecture and limitations](docs/ARCHITECTURE.md), [API/event contract](docs/API_CONTRACT.md), and [implementation report](docs/SLICE1_REPORT.md).
+## Documentation
 
-
-The responsive frontend uses a navy-and-cyan command workspace with live application state; it does not fabricate uptime, connection status, or latency. On small screens, task overview is available from the header.
+- [Architecture & limitations](docs/ARCHITECTURE.md)
+- [Local security boundary](docs/SECURITY_BOUNDARY.md)
+- [API & SSE event contract](docs/API_CONTRACT.md)
+- [Browser setup & boundaries](docs/BROWSER_PHASE.md)
+- [Windows runtime setup](docs/WINDOWS_RUNTIME.md)
+- [Memory & voice](docs/MEMORY_AND_VOICE.md)
+- [Slice 1 implementation report](docs/SLICE1_REPORT.md)

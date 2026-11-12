@@ -22,7 +22,7 @@ This is the ongoing project update report. Update it after each implementation p
 | 5 - Paired Windows runtime | Implemented for pairing, observation, captures and exact-approved window focus |
 | 6 - User-managed memory | Implemented: CRUD, provenance, scoped bounded retrieval |
 | 7 - Voice | Implemented with opt-in speech adapters and reviewed transcripts; live acceptance deferred |
-| 8 — Desktop packaging and production hardening | Not started |
+| 8 — Desktop packaging and production hardening | **8A** (local security boundary) implemented and tested; **8B** (data ops) and **8C** (Tauri shell) next |
 
 ## Detailed phase goals and completion criteria
 
@@ -385,3 +385,41 @@ Instructions: [Windows runtime](docs/WINDOWS_RUNTIME.md), [Memory and voice](doc
 ## 9 November 2026 - Professional corner branding
 
 - Replaced the condensed MITRA wordmark font with a clean semibold interface face, wider letter spacing and a subtle silver-to-cyan text gradient. Gave the logo, wordmark and BETA badge dedicated spacing; refined the badge typography and retained responsive sizing.
+
+
+## 9 November 2026 - Packaged system prompt
+
+- Added the supplied MITRA system prompt as `agent/system_prompt.md` and made it the authoritative prompt loaded by `agent/context.py`. Retained the existing runtime-specific tool, browser, approval, and untrusted-data constraints.
+- Configured setuptools to include the Markdown prompt in built distributions and documented the prompt's source location in `docs/ARCHITECTURE.md`.
+- Verified the prompt and memory-context tests (**3 passed**), Ruff, mypy for `agent/context.py`, and a built wheel containing `agent/system_prompt.md`. No live model was started.
+- Pytest emitted an existing shared-cache permission warning; tests passed using an isolated temporary directory. Initial default-temp test setup also hit a Windows permission error, resolved by setting pytest's basetemp.
+
+
+## 13 November 2026 - Phase 8A: Local security boundary & README refresh
+
+### Delivered
+
+- Added per-install local key management (`apps/api/local_key.py`): 256-bit key at `%LOCALAPPDATA%\MITRA\local-api.key` (`MITRA_SECRET_DIR` override), atomic hard-link creation, Windows ACL restriction to the current user SID (`0600` on POSIX), and HMAC-SHA256 derived `mitra-web-v1` web key. Both keys are registered with `Redactor`.
+- Added one-time launch codes and hashed browser sessions (`apps/api/auth_service.py`, Alembic migration `0004_auth_sessions`): 120s single-use launch codes (max 5 pending), SHA-256 session token hashes in SQLite (`MITRA_SESSION_HOURS`, default 168h), logout, revoke-all, and SSE stream session rechecks.
+- Added unified API security middleware (`apps/api/security_guard.py`) enforcing loopback peer + Host validation (DNS-rebinding protection), Origin allowlist, per-category in-memory rate limits with `Retry-After`, control-route isolation (`/api/v1/auth/launch`, `/api/v1/auth/redeem`, `/openapi.json`), `/docs` and `/redoc` removal, and security response headers (`no-store`, `nosniff`, `DENY`, `no-referrer`, `CORP: same-origin`).
+- Added `Frontend/proxy.ts`, `/locked` (`Frontend/app/locked/page.tsx`), `Frontend/components/session-controls.tsx`, `scripts/unlock.mjs` (`npm run unlock`), CSP/security headers in `Frontend/next.config.mjs`, and removed the unauthenticated rewrite fallback. Updated `scripts/contracts.mjs` (`--live`) to pass the local key.
+- Added `tests/client.py` (`ApiClient`), `tests/conftest.py`, `tests/test_security_boundary.py`, and updated `evals/run.py` and `tests/e2e/workflow.spec.ts` for authenticated local testing.
+- Documented the boundary in `docs/SECURITY_BOUNDARY.md`, `docs/ARCHITECTURE.md`, `AGENTS.md`, `.env.example`, and refreshed `README.md` with a centered OSS header, CI/stack badges, and capabilities/boundaries table.
+
+### Actual verification
+
+| Check | Result |
+| --- | --- |
+| Full Python suite (`pytest`) | **199 passed** (includes 7 new Phase 8A security boundary tests) |
+| Strict Python typing (`mypy`) | Passed across 42 source files |
+| Ruff (`ruff check`) | Passed |
+| Generated contract drift (`npm run check:types`) | Passed |
+| Frontend lint, TypeScript, component tests, production build | Passed (`8/8` component/event tests) |
+| Browser E2E (`npm run test:e2e`) | **8 passed** (including unauthenticated lock, single-use launch link unlock, and session lock/revoke) |
+| Scripted eval regression (`evals.run --provider fake`) | **20/20** expected outcomes; `evals/results/fake-20261112T180513Z.json` |
+
+### Limits and next work
+
+- `script-src` retains `'unsafe-inline'` for static Next.js rendering (`connect-src 'self'` constrains exfiltration); nonce/hash CSP is deferred. Same-user processes can still read `%LOCALAPPDATA%\MITRA\local-api.key`; OS-level secret wrapping for the shell is planned for 8C.
+- Rate limits are global and in-memory. No live model or hosted provider was started or called.
+- **Next: Phase 8B**, data operations (backup/restore, conversation deletion, retention/privacy controls, and diagnostics), followed by **Phase 8C** (Tauri desktop shell).

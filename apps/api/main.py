@@ -1,11 +1,9 @@
 import asyncio
 import base64
-import ipaddress
-from collections.abc import AsyncIterator, Awaitable, Callable
+from collections.abc import AsyncIterator, Awaitable
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Literal, cast
-from urllib.parse import urlsplit
 from uuid import UUID
 
 from dotenv import load_dotenv
@@ -16,6 +14,7 @@ from sqlalchemy import select
 
 from agent.orchestrator import Orchestrator
 from agent.state import TERMINAL
+from apps.api.auth_service import SESSION_COOKIE, AuthService
 from apps.api.config import ROOT, Config
 from apps.api.contracts import (
     Approval,
@@ -26,6 +25,8 @@ from apps.api.contracts import (
     DesktopRequest,
     DesktopResult,
     Health,
+    LaunchCode,
+    LaunchRedeem,
     MemoryInput,
     MemoryRecord,
     MemoryUpdate,
@@ -37,6 +38,8 @@ from apps.api.contracts import (
     RuntimeRevoke,
     RuntimeStatus,
     SendMessage,
+    SessionGrant,
+    SessionStatus,
     Settings,
     SpeechAudio,
     SpeechInput,
@@ -47,7 +50,9 @@ from apps.api.contracts import (
     VoiceStatus,
 )
 from apps.api.desktop_service import DesktopService
+from apps.api.local_key import load_or_create, web_key
 from apps.api.runtime_service import RuntimeService
+from apps.api.security_guard import RateLimiter, build_guard
 from memory.records import MemoryService
 from memory.store import Store, conversations, tasks
 from models.providers import CompatibleProvider, Provider
@@ -67,9 +72,19 @@ def create_app(
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-        redactor = Redactor([key.get_secret_value() for key in config.keys.values()])
+        app.state.local_key = load_or_create()
+        redactor = Redactor(
+            [key.get_secret_value() for key in config.keys.values()]
+            + [app.state.local_key, web_key(app.state.local_key)]
+        )
         store = Store(config.database, redactor)
         store.recover()
+        app.state.auth_service = AuthService(
+            store,
+            app.state.local_key,
+            web_key(app.state.local_key),
+            config.session_seconds,
+        )
         app.state.runtime_service = RuntimeService(store)
         app.state.desktop_service = DesktopService(app.state.runtime_service)
         app.state.memory_service = MemoryService(store)
@@ -101,11 +116,19 @@ def create_app(
         await service().close()
         store.close()
 
-    app = FastAPI(title="MITRA API", version="0.3.0", lifespan=lifespan)
-    app.middleware("http")(log_request)
+    app = FastAPI(
+        title="MITRA API",
+        version="0.3.0",
+        lifespan=lifespan,
+        docs_url=None,
+        redoc_url=None,
+    )
 
     def service() -> Orchestrator:
         return cast(Orchestrator, app.state.agent)
+
+    def auth() -> AuthService:
+        return cast(AuthService, app.state.auth_service)
 
     def runtime_service() -> RuntimeService:
         return cast(RuntimeService, app.state.runtime_service)
@@ -116,66 +139,37 @@ def create_app(
     def memories() -> MemoryService:
         return cast(MemoryService, app.state.memory_service)
 
-    @app.middleware("http")
-    async def origin_guard(
-        request: Request, call_next: Callable[[Request], Awaitable[Response]]
-    ) -> Response:
-        origin = request.headers.get("origin")
-        if request.url.path.startswith("/api/v1/runtime/"):
-            try:
-                authority = urlsplit("http://" + request.headers.get("host", ""))
-                host = (
-                    authority.hostname
-                    if not (
-                        authority.username
-                        or authority.password
-                        or authority.path
-                        or authority.query
-                        or authority.fragment
-                    )
-                    else None
-                )
-                _ = authority.port
-            except ValueError:
-                host = None
-            try:
-                local_peer = bool(
-                    request.client
-                    and ipaddress.ip_address(request.client.host).is_loopback
-                )
-            except ValueError:
-                local_peer = False
-            if not local_peer or host not in ("127.0.0.1", "localhost", "::1"):
-                return JSONResponse(
-                    {"detail": "Runtime API requires a loopback host"}, status_code=403
-                )
-            native = request.url.path.endswith(
-                (
-                    "/claim",
-                    "/heartbeat",
-                    "/disconnect",
-                    "/poll",
-                    "/authorize",
-                    "/result",
-                )
-            )
-            if native and origin:
-                return JSONResponse(
-                    {"detail": "Runtime credentials are for the native helper only"},
-                    status_code=403,
-                )
-        if origin and origin not in {
-            "http://localhost:3000",
-            "http://127.0.0.1:3000",
-            config.web_origin,
-        }:
-            return JSONResponse({"detail": "Origin not allowed"}, status_code=403)
-        response = await call_next(request)
-        if request.url.path.startswith("/api/v1/runtime/"):
-            response.headers["Cache-Control"] = "no-store"
-        if request.url.path.startswith(("/api/v1/voice/", "/api/v1/memories")):
-            response.headers["Cache-Control"] = "no-store"
-        return response
+    app.middleware("http")(
+        build_guard(
+            auth,
+            {"http://localhost:3000", "http://127.0.0.1:3000", config.web_origin},
+            RateLimiter(),
+        )
+    )
+    # Registered last so it is outermost: refused requests are still logged.
+    app.middleware("http")(log_request)
+
+    @app.post("/api/v1/auth/launch", response_model=LaunchCode)
+    def auth_launch() -> LaunchCode:
+        return auth().issue_launch()
+
+    @app.post("/api/v1/auth/redeem", response_model=SessionGrant)
+    def auth_redeem(body: LaunchRedeem) -> SessionGrant:
+        return auth().redeem(body.code)
+
+    @app.get("/api/v1/auth/session", response_model=SessionStatus)
+    def auth_session(request: Request) -> SessionStatus:
+        return auth().status(request.cookies.get(SESSION_COOKIE))
+
+    @app.post("/api/v1/auth/logout", status_code=204)
+    def auth_logout(request: Request) -> Response:
+        auth().revoke(request.cookies.get(SESSION_COOKIE))
+        return Response(status_code=204)
+
+    @app.post("/api/v1/auth/revoke-all", status_code=204)
+    def auth_revoke_all() -> Response:
+        auth().revoke_all()
+        return Response(status_code=204)
 
     @app.exception_handler(PermissionError)
     async def denied(request: Request, error: PermissionError) -> JSONResponse:
@@ -450,9 +444,16 @@ def create_app(
         except ValueError:
             raise HTTPException(400, "Invalid event cursor") from None
 
+        token = request.cookies.get(SESSION_COOKIE)
+
         async def stream() -> AsyncIterator[str]:
             nonlocal cursor
+            ticks = 0
             while not await request.is_disconnected():
+                ticks += 1
+                # Locking or revoking sessions also ends already-open streams.
+                if ticks % 25 == 0 and auth().session_expiry(token) is None:
+                    return
                 for event in service().store.event_rows(str(identity), cursor):
                     cursor = event.id
                     yield f"id: {cursor}\nevent: {event.type}\ndata: {event.model_dump_json()}\n\n"

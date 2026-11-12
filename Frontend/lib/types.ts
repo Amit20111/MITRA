@@ -32,3 +32,5 @@ export type VoiceStatus = components["schemas"]["VoiceStatus"];
 export type Transcript = components["schemas"]["Transcript"];
 
 export type SpeechAudio = components["schemas"]["SpeechAudio"];
+
+export type SessionStatus = components["schemas"]["SessionStatus"];

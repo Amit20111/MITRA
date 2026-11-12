@@ -7,11 +7,11 @@ from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 import pytest
-from fastapi.testclient import TestClient
 
 from apps.api.contracts import DesktopJob
 from apps.api.main import create_app
 from apps.runtime.desktop import NativeDesktop
+from tests.client import ApiClient
 from tests.fakes import FakeProvider
 from tests.test_runtime_pairing import heartbeat, pair
 
@@ -19,7 +19,7 @@ from tests.test_runtime_pairing import heartbeat, pair
 @pytest.fixture
 def desktop_client(tmp_path):
     app = create_app(tmp_path / "desktop.db", FakeProvider([]), tmp_path / "workspace")
-    with TestClient(
+    with ApiClient(
         app, base_url="http://127.0.0.1:8000", client=("127.0.0.1", 2222)
     ) as client:
         credential = pair(client)

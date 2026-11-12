@@ -3,12 +3,12 @@ from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 import pytest
-from fastapi.testclient import TestClient
 from sqlalchemy import select
 
 from apps.api.contracts import NormalizedResponse
 from apps.api.main import create_app
 from memory.store import traces
+from tests.client import ApiClient
 from tests.fakes import FakeProvider, final, tool
 
 
@@ -52,7 +52,7 @@ def fixture(tmp_path):
     provider = FakeProvider(
         [tool("write_file", path="note.txt", content="Hello"), final()]
     )
-    with TestClient(create_app(tmp_path / "agent.db", provider, workspace)) as client:
+    with ApiClient(create_app(tmp_path / "agent.db", provider, workspace)) as client:
         yield client, workspace, provider
 
 
@@ -172,7 +172,7 @@ def test_read_file_then_final_and_untrusted_context(tmp_path):
             final("The file contains an instruction injection."),
         ]
     )
-    with TestClient(create_app(tmp_path / "db", provider, workspace)) as client:
+    with ApiClient(create_app(tmp_path / "db", provider, workspace)) as client:
         task = wait_for(
             client, submit(client, "Summarize notes.txt")["id"], "completed"
         )
@@ -195,7 +195,7 @@ def test_read_file_then_final_and_untrusted_context(tmp_path):
 )
 def test_response_modes_and_bounded_validation(tmp_path, responses, expected):
     provider = FakeProvider(responses)
-    with TestClient(
+    with ApiClient(
         create_app(tmp_path / "db", provider, tmp_path / "workspace")
     ) as client:
         wait_for(client, submit(client)["id"], expected)
@@ -205,18 +205,18 @@ def test_response_modes_and_bounded_validation(tmp_path, responses, expected):
 def test_persistence_and_interrupted_recovery(tmp_path):
     db = tmp_path / "db"
     workspace = tmp_path / "workspace"
-    with TestClient(
+    with ApiClient(
         create_app(db, FakeProvider([final()], delay=10), workspace)
     ) as client:
         identity = submit(client)["id"]
-    with TestClient(create_app(db, FakeProvider([]), workspace)) as client:
+    with ApiClient(create_app(db, FakeProvider([]), workspace)) as client:
         assert client.get(f"/api/v1/tasks/{identity}").json()["status"] == "failed"
         assert len(client.get("/api/v1/conversations").json()) == 1
 
 
 def test_step_cap(tmp_path):
     provider = FakeProvider([tool("list_directory", path=".") for _ in range(12)])
-    with TestClient(
+    with ApiClient(
         create_app(tmp_path / "db", provider, tmp_path / "workspace")
     ) as client:
         task = wait_for(client, submit(client)["id"], "failed")

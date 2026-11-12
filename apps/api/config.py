@@ -35,6 +35,9 @@ class Config:
             os.getenv("MITRA_DATABASE", str(default_database))
         )
         self.max_steps = max(1, min(8, int(os.getenv("MITRA_MAX_STEPS", "8"))))
+        self.session_seconds = 3600 * max(
+            1, min(720, int(os.getenv("MITRA_SESSION_HOURS", "168")))
+        )
         self.retries = max(0, min(1, int(os.getenv("MITRA_STEP_RETRIES", "1"))))
         self.approval_seconds = max(1, int(os.getenv("MITRA_APPROVAL_SECONDS", "600")))
         self.timeout = max(1, min(300, float(os.getenv("LLM_TIMEOUT_SECONDS", "120"))))
