@@ -103,6 +103,10 @@ class Conversation(Contract):
     task: Task | None = None
 
 
+class ConversationRename(Contract):
+    title: str = Field(min_length=1, max_length=120, pattern=r".*\S.*")
+
+
 class SendMessage(Contract):
     content: str = Field(min_length=1, max_length=8000)
     requestId: UUID
@@ -331,3 +335,30 @@ class SpeechInput(Contract):
 class SpeechAudio(Contract):
     audio: str = Field(repr=False)
     mime: Literal["audio/mpeg"] = "audio/mpeg"
+
+
+class BackupInfo(Contract):
+    filename: str
+    sizeBytes: int
+    createdAt: str
+
+
+class DataStatus(Contract):
+    databasePath: str
+    sizeBytes: int
+    alembicRevision: str
+    conversations: int
+    tasks: int
+    events: int
+    traces: int
+    memories: int
+    backups: list[BackupInfo] = Field(default_factory=list)
+
+
+class PruneRequest(Contract):
+    days: int = Field(default=30, ge=1, le=3650)
+
+
+class PruneResult(Contract):
+    deletedEvents: int
+    deletedTraces: int

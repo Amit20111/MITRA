@@ -58,6 +58,15 @@ export const agentClient = {
   createConversation: () => request<Conversation>("/conversations", {}),
   getConversation: (id: string) =>
     request<Conversation>(`/conversations/${id}`),
+  renameConversation: (id: string, title: string) =>
+    request<Conversation>(`/conversations/${id}/rename`, { title }),
+  deleteConversation: (id: string) =>
+    request<Conversation[]>(`/conversations/${id}/delete`, {}),
+  dataStatus: () => request<import("../types").DataStatus>("/data/status"),
+  createBackup: () => request<import("../types").BackupInfo>("/data/backup", {}),
+  pruneData: (days: number) =>
+    request<import("../types").PruneResult>("/data/prune", { days }),
+  diagnosticsUrl: () => "/api/v1/data/diagnostics",
   listTasks: () => request<Task[]>("/tasks"),
   health: () => request<Health>("/health"),
   settings: () => request<Settings>("/settings"),

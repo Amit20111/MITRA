@@ -420,3 +420,29 @@ Instructions: [Windows runtime](docs/WINDOWS_RUNTIME.md), [Memory and voice](doc
 
 - The web UI and local API are directly accessible on loopback without a browser session cookie; only the `origin_guard` (`Origin` allowlist + `/api/v1/runtime/` loopback checks) is active.
 - **Next: Phase 8B** (data ops: backup/restore, conversation deletion, retention/privacy controls, diagnostics) or **8C** (Tauri desktop shell).
+
+
+## 13 November 2026 - Phase 8B: Data Operations & Reliability
+
+### Delivered
+
+- **Conversation rename & delete**: Added `rename_conversation` and `delete_conversation` in `memory/store.py` plus `POST /api/v1/conversations/{identity}/rename` and `POST /api/v1/conversations/{identity}/delete` in `apps/api/main.py`. Deleting a conversation cleans up its tasks, events, traces, idempotency requests, and conversation-scoped memory records, while refusing deletion (`409`) if any task in that conversation is still non-terminal. Added inline rename and delete controls in `Frontend/components/workspace.tsx`.
+- **SQLite backup, restore, and pre-upgrade safety**: Added `memory/ops.py` using SQLite's online `.backup()` API with `PRAGMA integrity_check` verification, schema validation on restore, automatic pre-restore safety backups, and CLI entrypoints (`python -m memory.ops backup|restore|prune`). Added automatic `_pre_upgrade_backup` in `Store.__init__` before Alembic upgrades run.
+- **Retention pruning & redacted diagnostics**: Added `prune_history` (deletes events and traces older than `days` for terminal tasks only, preserving active tasks and recent records) and `build_diagnostics` (redacted via `Redactor`) in `memory/ops.py`, exposed via `GET /api/v1/data/status`, `POST /api/v1/data/backup`, `POST /api/v1/data/prune`, and `GET /api/v1/data/diagnostics` with `Cache-Control: no-store`. Added `Frontend/components/data-ops-panel.tsx` in Settings and regenerated `packages/contracts/api.d.ts` (`ConversationRename`, `BackupInfo`, `DataStatus`, `PruneRequest`, `PruneResult`).
+
+### Actual verification
+
+| Check | Result |
+| --- | --- |
+| Full Python suite (`pytest`) | **195 passed** (includes `tests/test_data_ops.py`) |
+| Strict Python typing (`mypy`) | Passed across 40 source files |
+| Ruff (`ruff check`) | Passed |
+| Generated contract drift (`npm run check:types`) | Passed |
+| Frontend lint, TypeScript, component tests, production build | Passed (`8/8` component/event tests) |
+| Browser E2E (`npm run test:e2e`) | **8 passed** (25.1s, includes rename/delete & Data Ops backup/diagnostics test) |
+| Scripted eval regression (`evals.run --provider fake`) | **20/20** expected outcomes; `evals/results/fake-20261113T084925Z.json` |
+
+### Limits and next work
+
+- Database restore remains CLI-only (`python -m memory.ops restore --input <path>`) with the API stopped, rather than hot-swapping SQLite over a running FastAPI process.
+- **Next: Phase 8C** (Tauri desktop shell).

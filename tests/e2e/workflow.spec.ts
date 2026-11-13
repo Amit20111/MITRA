@@ -422,3 +422,31 @@ test("voice recording review, cancellation and playback use explicit controls", 
   expect(counts.tracksStopped).toBeGreaterThanOrEqual(2);
   expect(counts.paused).toBeGreaterThanOrEqual(1);
 });
+
+test("conversation rename/delete and settings data ops backup", async ({ page }) => {
+  await Promise.all([
+    page.waitForResponse((res) => res.url().endsWith("/api/v1/conversations") && res.status() === 200),
+    page.goto("/"),
+  ]);
+  await page.getByRole("button", { name: "New conversation" }).click();
+  const renameBtn = page.getByRole("button", { name: /^Rename / }).first();
+  await renameBtn.click();
+  const titleInput = page.getByLabel("Conversation title");
+  await titleInput.fill("Phase 8B E2E Chat");
+  await titleInput.press("Enter");
+  await expect(
+    page.getByRole("button", { name: "Phase 8B E2E Chat", exact: true }),
+  ).toBeVisible();
+
+  await page.getByRole("button", { name: "Delete Phase 8B E2E Chat" }).click();
+  await expect(page.getByText("Phase 8B E2E Chat")).toHaveCount(0);
+
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  const panel = page.getByTestId("data-ops-panel");
+  await expect(panel).toBeVisible();
+  await panel.getByRole("button", { name: "Create backup" }).click();
+  await expect(panel.getByTestId("data-ops-notice")).toContainText("Backup created:");
+  await expect(
+    panel.getByRole("link", { name: "Download diagnostics" }),
+  ).toHaveAttribute("href", "/api/v1/data/diagnostics");
+});

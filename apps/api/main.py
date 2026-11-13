@@ -19,7 +19,10 @@ from agent.state import TERMINAL
 from apps.api.config import ROOT, Config
 from apps.api.contracts import (
     Approval,
+    BackupInfo,
     Conversation,
+    ConversationRename,
+    DataStatus,
     Decision,
     DesktopDecision,
     DesktopJob,
@@ -31,6 +34,8 @@ from apps.api.contracts import (
     MemoryUpdate,
     PairingChallenge,
     PairingClaim,
+    PruneRequest,
+    PruneResult,
     RuntimeAudit,
     RuntimeCredential,
     RuntimeHeartbeat,
@@ -48,6 +53,12 @@ from apps.api.contracts import (
 )
 from apps.api.desktop_service import DesktopService
 from apps.api.runtime_service import RuntimeService
+from memory.ops import (
+    backup_database,
+    build_diagnostics,
+    data_status,
+    prune_history,
+)
 from memory.records import MemoryService
 from memory.store import Store, conversations, tasks
 from models.providers import CompatibleProvider, Provider
@@ -173,7 +184,9 @@ def create_app(
         response = await call_next(request)
         if request.url.path.startswith("/api/v1/runtime/"):
             response.headers["Cache-Control"] = "no-store"
-        if request.url.path.startswith(("/api/v1/voice/", "/api/v1/memories")):
+        if request.url.path.startswith(
+            ("/api/v1/voice/", "/api/v1/memories", "/api/v1/data/")
+        ):
             response.headers["Cache-Control"] = "no-store"
         return response
 
@@ -391,6 +404,54 @@ def create_app(
     def conversation(identity: UUID) -> Conversation:
         with service().store.transaction() as db:
             return service().store.conversation(db, str(identity))
+
+    @app.post("/api/v1/conversations/{identity}/rename", response_model=Conversation)
+    def rename_conversation(identity: UUID, body: ConversationRename) -> Conversation:
+        with service().store.transaction() as db:
+            return service().store.rename_conversation(db, str(identity), body.title)
+
+    @app.post(
+        "/api/v1/conversations/{identity}/delete", response_model=list[Conversation]
+    )
+    def delete_conversation(identity: UUID) -> list[Conversation]:
+        with service().store.transaction() as db:
+            service().store.delete_conversation(db, str(identity))
+        return list_conversations()
+
+    @app.get("/api/v1/data/status", response_model=DataStatus)
+    def get_data_status() -> DataStatus:
+        return data_status(service().store, config.database)
+
+    @app.post("/api/v1/data/backup", response_model=BackupInfo)
+    def create_data_backup() -> BackupInfo:
+        return backup_database(config.database)
+
+    @app.post("/api/v1/data/prune", response_model=PruneResult)
+    def prune_data(body: PruneRequest) -> PruneResult:
+        return prune_history(service().store, body.days)
+
+    @app.get("/api/v1/data/diagnostics")
+    def download_diagnostics() -> Response:
+        import json
+
+        payload = build_diagnostics(
+            service().store,
+            config.database,
+            app.version,
+            health(),
+            settings(),
+            runtime(),
+            runtime_history(),
+        )
+        return Response(
+            json.dumps(payload, indent=2, ensure_ascii=False),
+            media_type="application/json",
+            headers={
+                "Cache-Control": "no-store",
+                "Content-Disposition": 'attachment; filename="mitra-diagnostics.json"',
+                "X-Content-Type-Options": "nosniff",
+            },
+        )
 
     @app.post(
         "/api/v1/conversations/{identity}/messages",

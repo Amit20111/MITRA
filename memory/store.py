@@ -1,10 +1,15 @@
+import os
+import sqlite3
 from collections.abc import Iterator
 from contextlib import contextmanager
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 from alembic import command
 from alembic.config import Config as AlembicConfig
+from alembic.runtime.migration import MigrationContext
+from alembic.script import ScriptDirectory
 from sqlalchemy import (
     JSON,
     Boolean,
@@ -16,10 +21,12 @@ from sqlalchemy import (
     String,
     Table,
     create_engine,
+    delete,
     select,
 )
 from sqlalchemy.dialects.sqlite import insert
 
+from agent.state import TERMINAL
 from apps.api.contracts import (
     Conversation,
     EventType,
@@ -120,9 +127,33 @@ class Store:
             "script_location",
             str(Path(__file__).resolve().parents[1] / "apps/api/migrations"),
         )
+        self._pre_upgrade_backup(path, config)
         with self.engine.begin() as connection:
             config.attributes["connection"] = connection
             command.upgrade(config, "head")
+
+    def _pre_upgrade_backup(self, path: Path, config: AlembicConfig) -> None:
+        resolved = path.resolve()
+        if not resolved.exists() or resolved.stat().st_size == 0:
+            return
+        head = ScriptDirectory.from_config(config).get_current_head()
+        with self.engine.connect() as connection:
+            current = MigrationContext.configure(connection).get_current_revision()
+        if current == head:
+            return
+        backups = resolved.parent / "backups"
+        backups.mkdir(parents=True, exist_ok=True)
+        stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+        target = backups / f"{resolved.stem}-pre-upgrade-{stamp}.db"
+        temp = target.with_name(f".{target.name}.{os.getpid()}.tmp")
+        src = sqlite3.connect(str(resolved))
+        dst = sqlite3.connect(str(temp))
+        try:
+            src.backup(dst)
+        finally:
+            dst.close()
+            src.close()
+        os.replace(temp, target)
 
     @contextmanager
     def transaction(self) -> Iterator[Connection]:
@@ -161,6 +192,48 @@ class Store:
                 set_={"payload": statement.excluded.payload},
             )
         )
+
+    def rename_conversation(
+        self, db: Connection, identity: str, title: str
+    ) -> Conversation:
+        conversation = self.conversation(db, identity)
+        conversation.title = title.strip()
+        self.save_conversation(db, conversation)
+        return conversation
+
+    def delete_conversation(self, db: Connection, identity: str) -> None:
+        self.conversation(db, identity)
+        task_rows = db.execute(
+            select(tasks.c.id, tasks.c.payload).where(
+                tasks.c.conversation_id == identity
+            )
+        ).mappings()
+        task_ids: list[str] = []
+        for row in task_rows:
+            task = Task.model_validate(row["payload"])
+            if task.status not in TERMINAL:
+                raise ValueError(
+                    "Cancel or finish the active task before deleting this conversation"
+                )
+            task_ids.append(str(row["id"]))
+        if task_ids:
+            db.execute(delete(events).where(events.c.task_id.in_(task_ids)))
+            db.execute(delete(traces).where(traces.c.task_id.in_(task_ids)))
+        db.execute(delete(tasks).where(tasks.c.conversation_id == identity))
+        db.execute(delete(requests).where(requests.c.conversation_id == identity))
+        scoped_memory_ids = [
+            row["id"]
+            for row in db.execute(
+                select(memory_records.c.id, memory_records.c.payload)
+            ).mappings()
+            if isinstance(row["payload"], dict)
+            and row["payload"].get("conversationId") == identity
+        ]
+        if scoped_memory_ids:
+            db.execute(
+                delete(memory_records).where(memory_records.c.id.in_(scoped_memory_ids))
+            )
+        db.execute(delete(conversations).where(conversations.c.id == identity))
 
     def save_task(
         self,

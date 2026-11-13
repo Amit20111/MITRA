@@ -32,3 +32,11 @@ export type VoiceStatus = components["schemas"]["VoiceStatus"];
 export type Transcript = components["schemas"]["Transcript"];
 
 export type SpeechAudio = components["schemas"]["SpeechAudio"];
+
+export type BackupInfo = components["schemas"]["BackupInfo"];
+
+export type DataStatus = components["schemas"]["DataStatus"];
+
+export type PruneRequest = components["schemas"]["PruneRequest"];
+
+export type PruneResult = components["schemas"]["PruneResult"];

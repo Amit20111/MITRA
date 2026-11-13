@@ -23,6 +23,7 @@ import {
   Mic,
   Monitor,
   Pause,
+  Pencil,
   Play,
   Plus,
   Search,
@@ -30,11 +31,13 @@ import {
   ShieldCheck,
   Sparkles,
   Square,
+  Trash2,
   X,
 } from "lucide-react";
 import { MemoryPanel } from "@/components/memory-panel";
 import { FullscreenToggle } from "@/components/fullscreen-toggle";
 import { DesktopPanel } from "@/components/desktop-panel";
+import { DataOpsPanel } from "@/components/data-ops-panel";
 import { VoicePanel } from "@/components/voice-panel";
 import { RuntimeSettings } from "@/components/runtime-settings";
 import { MitraMark } from "@/components/mitra-mark";
@@ -98,6 +101,8 @@ export function Workspace({
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [taskPaneOpen, setTaskPaneOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingTitle, setEditingTitle] = useState("");
   const current = conversations.find((c) => c.id === activeId);
   const task = selectedTask || current?.task;
   const taskId = task?.id;
@@ -262,6 +267,40 @@ export function Workspace({
       setBusy(false);
     }
   }
+  async function handleRenameConversation(id: string) {
+    const title = editingTitle.trim();
+    if (!title) return;
+    try {
+      const updated = await agentClient.renameConversation(id, title);
+      setConversations((cs) => cs.map((c) => (c.id === id ? updated : c)));
+      setEditingId(null);
+      setEditingTitle("");
+      setError("");
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Could not rename conversation.",
+      );
+    }
+  }
+  async function handleDeleteConversation(id: string) {
+    try {
+      const remaining = await agentClient.deleteConversation(id);
+      setConversations(remaining);
+      if (activeId === id) {
+        setActiveId(remaining[0]?.id || "");
+        setSelectedTask(null);
+        setDecisionPending(false);
+      }
+      setTaskHistory((tasks) =>
+        tasks.filter((t) => t.conversationId !== id),
+      );
+      setError("");
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Could not delete conversation.",
+      );
+    }
+  }
   async function send(text = input) {
     if (!text.trim() || busy) return;
     const content = text.trim();
@@ -421,20 +460,104 @@ export function Workspace({
           {conversations
             .filter((c) => c.title.toLowerCase().includes(query.toLowerCase()))
             .map((c) => (
-              <button
+              <div
                 key={c.id}
                 className={`conversation-item ${c.id === activeId && view === "workspace" ? "active" : ""}`}
-                onClick={() => {
-                  setActiveId(c.id);
-                  setSelectedTask(null);
-                  setDecisionPending(false);
-                  navigate("workspace");
-                }}
+                style={{ display: "flex", alignItems: "center", gap: "0.35rem" }}
               >
-                <MessageSquare size={14} />
-                <span>{c.title}</span>
-                {c.id === activeId && <span className="tiny-dot" />}
-              </button>
+                {editingId === c.id ? (
+                  <>
+                    <input
+                      type="text"
+                      value={editingTitle}
+                      onChange={(e) => setEditingTitle(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") void handleRenameConversation(c.id);
+                        if (e.key === "Escape") {
+                          setEditingId(null);
+                          setEditingTitle("");
+                        }
+                      }}
+                      aria-label="Conversation title"
+                      style={{ flex: 1, minWidth: 0 }}
+                      autoFocus
+                    />
+                    <button
+                      type="button"
+                      className="icon-button"
+                      aria-label={`Save title for ${c.title}`}
+                      onClick={() => void handleRenameConversation(c.id)}
+                    >
+                      <Check size={12} />
+                    </button>
+                    <button
+                      type="button"
+                      className="icon-button"
+                      aria-label="Cancel rename"
+                      onClick={() => {
+                        setEditingId(null);
+                        setEditingTitle("");
+                      }}
+                    >
+                      <X size={12} />
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveId(c.id);
+                        setSelectedTask(null);
+                        setDecisionPending(false);
+                        navigate("workspace");
+                      }}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "0.5rem",
+                        flex: 1,
+                        minWidth: 0,
+                        background: "transparent",
+                        border: "none",
+                        color: "inherit",
+                        cursor: "pointer",
+                        textAlign: "left",
+                        padding: 0,
+                      }}
+                    >
+                      <MessageSquare size={14} />
+                      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {c.title}
+                      </span>
+                      {c.id === activeId && <span className="tiny-dot" />}
+                    </button>
+                    <button
+                      type="button"
+                      className="icon-button"
+                      aria-label={`Rename ${c.title}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setEditingId(c.id);
+                        setEditingTitle(c.title);
+                      }}
+                    >
+                      <Pencil size={12} />
+                    </button>
+                    <button
+                      type="button"
+                      className="icon-button"
+                      aria-label={`Delete ${c.title}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        void handleDeleteConversation(c.id);
+                      }}
+                    >
+                      <Trash2 size={12} />
+                    </button>
+                  </>
+                )}
+              </div>
             ))}
           {query &&
             !conversations.some((c) =>
@@ -1120,6 +1243,7 @@ export function Workspace({
                 </div>
                 <RuntimeSettings status={runtime} onStatus={setRuntime} />
                 <DesktopPanel status={runtime} />
+                <DataOpsPanel />
                 <div className="setting-row">
                   <div>
                     <strong>Appearance</strong>
